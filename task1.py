@@ -19,13 +19,13 @@ dataset = torchvision.datasets.MNIST('./data',
                                      transform=torchvision.transforms.ToTensor(),
                                      download=True)
 
-train_set, val_set = torch.utils.data.random_split(dataset, [50000, 10000])
+train_set, val_set = torch.utils.data.random_split(dataset, [40000, 20000])
 
 train_set_loader = torch.utils.data.DataLoader(train_set,
-                                               batch_size=100,
+                                               batch_size=200,
                                                shuffle=True)
 test_set_loader = torch.utils.data.DataLoader(val_set,
-                                              batch_size=100,
+                                              batch_size=200,
                                               shuffle=True)
 
 
@@ -128,32 +128,30 @@ autoencoder = VariationalAutoencoder(15).to(device)
 generator = Generator(15).to(device)
 discriminator = Discriminator().to(device)
 
-opt = torch.optim.Adam(autoencoder.parameters())
-optimizer_G = torch.optim.Adam(generator.parameters())
+opt = torch.optim.Adam(autoencoder.parameters(), lr=0.0001)
+optimizer_G = torch.optim.Adam(generator.parameters(), lr=0.0001)
 #optimizer_D = torch.optim.Adam(discriminator.parameters())
 
 triplet_loss = nn.TripletMarginLoss()
 adversarial_loss = torch.nn.BCELoss()
-l1loss = nn.L1Loss()
+l1loss = nn.MSELoss()
 
 losses_list = []
 
-epochs = 600
+epochs = 5000
 for epoch in range(epochs):
     losses = []
     g_losses = []
     for x, y in train_set_loader:
         x = x.to(device)
 
-        '''valid = Tensor(x.size(0), 1).fill_(1.0).to(device)
-        fake = Tensor(x.size(0), 1).fill_(0.0).to(device)'''
-
         # Train the generator
         optimizer_G.zero_grad()
-        z = Variable(Tensor(np.random.normal(0, 1, (100, 15)))).to(device)
+        z = Variable(Tensor(np.random.normal(0, 1, (200, 15)))).to(device)
         gen_imgs = generator(z)
         gen_loss = l1loss(x, gen_imgs)
         gen_loss.backward()
+        torch.nn.utils.clip_grad_norm_(generator.parameters(), 1.0)
         optimizer_G.step()
 
         # Train the autoencoder
@@ -164,13 +162,14 @@ for epoch in range(epochs):
         losses.append(loss.item())
         g_losses.append(gen_loss.item())
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(autoencoder.parameters(), 1.0)
         opt.step()
         
     print(f'Epoch {epoch}, loss={np.mean(losses)}, gloss={np.mean(g_losses)}')
     #print(f'Epoch {epoch}, loss={np.mean(losses)}')
     losses_list.append(np.mean(losses))
 
-torch.save(autoencoder.state_dict(), 'VAE_GAN15_600.pt')
+torch.save(autoencoder.state_dict(), 'VAE_GAN15_5000.pt')
 
 plt.plot(np.arange(len(losses_list)), losses_list)
 plt.show()

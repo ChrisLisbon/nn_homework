@@ -52,13 +52,13 @@ dataset = torchvision.datasets.MNIST('./data',
                                      transform=torchvision.transforms.ToTensor(),
                                      download=True)
 
-train_set, val_set = torch.utils.data.random_split(dataset, [50000, 10000])
+train_set, val_set = torch.utils.data.random_split(dataset, [40000, 20000])
 
 train_set_loader = torch.utils.data.DataLoader(train_set,
-                                               batch_size=128,
+                                               batch_size=100,
                                                shuffle=True)
-test_set_loader = torch.utils.data.DataLoader(train_set,
-                                              batch_size=128,
+test_set_loader = torch.utils.data.DataLoader(val_set,
+                                              batch_size=100,
                                               shuffle=True)
 
 class VariationalAutoencoder(nn.Module):
@@ -72,7 +72,7 @@ class VariationalAutoencoder(nn.Module):
         return self.decoder(z)
 
 autoencoder = VariationalAutoencoder(15).to(device)
-autoencoder.load_state_dict(torch.load('VAE_GAN15.pt'))
+autoencoder.load_state_dict(torch.load('VAE_GAN15_1000.pt'))
 autoencoder.eval()
 
 test_losses = []
@@ -81,8 +81,13 @@ for x, y in test_set_loader:
     x_hat = autoencoder(x)
     output = x_hat.detach().cpu().numpy()
     target = x.detach().cpu().numpy()
-    plt.imshow(output[0][0])
-    plt.show()
+    for j in range(target.shape[0]):
+        fig, axs = plt.subplots(1, 2, figsize=(8, 4))
+        axs[0].imshow(output[j][0])
+        axs[0].set_title('VAE+GAN')
+        axs[1].imshow(target[j][0])
+        axs[1].set_title('Target')
+        plt.show()
     loss = ((x - x_hat) ** 2).sum()
     test_losses.append(loss.item())
 print(np.mean(test_losses))
