@@ -72,7 +72,7 @@ class VariationalAutoencoder(nn.Module):
         return self.decoder(z)
 
 autoencoder = VariationalAutoencoder(15).to(device)
-autoencoder.load_state_dict(torch.load('VAE_GAN15_1000.pt'))
+autoencoder.load_state_dict(torch.load('VAE_GAN15_5000.pt'))
 autoencoder.eval()
 
 test_losses = []
@@ -85,7 +85,8 @@ for x, y in test_set_loader:
         fig, axs = plt.subplots(1, 2, figsize=(8, 4))
         axs[0].imshow(output[j][0])
         axs[0].set_title('VAE+GAN')
-        axs[1].imshow(target[j][0])
+        a = axs[1].imshow(target[j][0])
+        plt.colorbar(a)
         axs[1].set_title('Target')
         plt.show()
     loss = ((x - x_hat) ** 2).sum()

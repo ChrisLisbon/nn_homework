@@ -8,7 +8,7 @@ import torch.distributions
 import torchvision
 import numpy as np
 import matplotlib.pyplot as plt
-
+from pytorch_msssim import ssim
 torch.manual_seed(0)
 torch.autograd.set_detect_anomaly(True)
 
@@ -19,7 +19,7 @@ dataset = torchvision.datasets.MNIST('./data',
                                      transform=torchvision.transforms.ToTensor(),
                                      download=True)
 
-train_set, val_set = torch.utils.data.random_split(dataset, [40000, 20000])
+train_set, val_set = torch.utils.data.random_split(dataset, [30000, 30000])
 
 train_set_loader = torch.utils.data.DataLoader(train_set,
                                                batch_size=200,
@@ -68,15 +68,15 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
 
         self.model = nn.Sequential(nn.Linear(latent_dims, 128),
-                                   nn.LeakyReLU(0.2),
+                                   nn.ReLU(),
                                    nn.Linear(128, 256),
-                                   nn.LeakyReLU(0.2),
+                                   nn.ReLU(),
                                    nn.Linear(256, 512),
-                                   nn.LeakyReLU(0.2),
+                                   nn.ReLU(),
                                    nn.Linear(512, 1024),
-                                   nn.LeakyReLU(0.2),
+                                   nn.ReLU(),
                                    nn.Linear(1024, int(np.prod((1, 28, 28)))),
-                                   nn.Tanh()
+                                   nn.Sigmoid()
                                    )
 
     def forward(self, z):
@@ -125,20 +125,17 @@ class VariationalAutoencoder(nn.Module):
 
 
 autoencoder = VariationalAutoencoder(15).to(device)
-generator = Generator(15).to(device)
-discriminator = Discriminator().to(device)
+generator = Generator(100).to(device)
 
 opt = torch.optim.Adam(autoencoder.parameters(), lr=0.0001)
-optimizer_G = torch.optim.Adam(generator.parameters(), lr=0.0001)
-#optimizer_D = torch.optim.Adam(discriminator.parameters())
+optimizer_G = torch.optim.Adam(generator.parameters(), lr=0.001)
 
 triplet_loss = nn.TripletMarginLoss()
-adversarial_loss = torch.nn.BCELoss()
-l1loss = nn.MSELoss()
+criterion = nn.L1Loss()
 
 losses_list = []
 
-epochs = 5000
+epochs = 500
 for epoch in range(epochs):
     losses = []
     g_losses = []
@@ -147,29 +144,30 @@ for epoch in range(epochs):
 
         # Train the generator
         optimizer_G.zero_grad()
-        z = Variable(Tensor(np.random.normal(0, 1, (200, 15)))).to(device)
+        z = Variable(Tensor(np.random.uniform(0, 1, (200, 100)))).to(device)
         gen_imgs = generator(z)
-        gen_loss = l1loss(x, gen_imgs)
+        #gen_loss = 1 - ssim(x, gen_imgs,  data_range=1, size_average=True)
+        gen_loss = criterion(gen_imgs, x)
+        g_losses.append(gen_loss.item())
         gen_loss.backward()
         torch.nn.utils.clip_grad_norm_(generator.parameters(), 1.0)
         optimizer_G.step()
 
         # Train the autoencoder
-        opt.zero_grad()
+        '''opt.zero_grad()
         x_enc = autoencoder(x)
-
         loss = triplet_loss(x_enc, x, gen_imgs.detach())
         losses.append(loss.item())
-        g_losses.append(gen_loss.item())
+        
         loss.backward()
         torch.nn.utils.clip_grad_norm_(autoencoder.parameters(), 1.0)
-        opt.step()
+        opt.step()'''
         
     print(f'Epoch {epoch}, loss={np.mean(losses)}, gloss={np.mean(g_losses)}')
     #print(f'Epoch {epoch}, loss={np.mean(losses)}')
-    losses_list.append(np.mean(losses))
+    #losses_list.append(np.mean(losses))
 
-torch.save(autoencoder.state_dict(), 'VAE_GAN15_5000.pt')
+#torch.save(autoencoder.state_dict(), '__VAE_GAN15_500.pt')
 
 plt.plot(np.arange(len(losses_list)), losses_list)
 plt.show()
